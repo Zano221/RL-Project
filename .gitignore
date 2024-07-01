@@ -1,0 +1,13 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+# Ignore Pipfile and Pipfile.lock
+Pipfile.lock
+
+.python-version
+
+# Ignore Custons Maps
+custonsmap.py
+
+# Ignore vscode Config
+.vscode
