@@ -1,11 +1,11 @@
 
-fuck_this_teacher = True
+old_code = True
 
 
 
 
 
-if not fuck_this_teacher:
+if not old_code:
 
     import random
     import crashbaracuta
