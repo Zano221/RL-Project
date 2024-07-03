@@ -15,7 +15,7 @@ RIGHT = 2
 UP = 3
 
 MAPS = {
-    "4x4": ['A--S','--SZ','Z--S','-Z-G',],
+    "4x4": ['A-SZ','SZS-','---S','--ZG',],
     "8x8": [
         'A--SSS--',
         'ZZRZ----',
@@ -23,13 +23,13 @@ MAPS = {
         '--S-ZR--',
         '-SS--Z--',
         '--Z-----',
-        '----SZ-Z'
+        '----SZ-Z',
         '-SZ-S--G',
     ],
 }
 
 
-def is_valid(board: List[List[str]], max_size: int) -> bool:
+def is_map_valid(board: List[List[str]], max_size: int) -> bool:
     frontier, discovered = [], set()
     frontier.append((0, 0))
     while frontier:
@@ -58,14 +58,14 @@ def generate_random_map(size: int = 8, p: float = 0.8) -> List[str]:
         board = np.random.choice(["F", "Z"], (size, size), p=[p, 1 - p])
         board[0][0] = "A"
         board[-1][-1] = "G"
-        valid = is_valid(board, size)
+        valid = is_map_valid(board, size)
     return ["".join(x) for x in board]
 
 
-class TheLastOfUsEnv(Env):
+class CrashBaracuta(Env):
     metadata = {
         "render_modes": ["human", "ansi", "rgb_array"],
-        "render_fps": 4,
+        "render_fps": 6,
     }
 
     def __init__(
@@ -80,6 +80,7 @@ class TheLastOfUsEnv(Env):
         elif desc is None:
             desc = MAPS[map_name]
         self.desc = desc = np.asarray(desc, dtype="c")
+        print(desc.shape)
         self.nrow, self.ncol = nrow, ncol = desc.shape
         self.reward_range = (0, 1)
 
@@ -95,7 +96,7 @@ class TheLastOfUsEnv(Env):
         self.is_slippery = is_slippery
         for row in range(nrow):
             for col in range(ncol):
-                s = self.to_s(row, col)
+                s = self.convert_to_state(row, col)
                 for a in range(4):
                     li = self.P[s][a]
                     letter = desc[row, col]
@@ -124,17 +125,17 @@ class TheLastOfUsEnv(Env):
         self.hole_img = None
         self.death_img = None
         self.ice_img = None
-        self.elf_images = None
+        self.crash_images = None
         self.goal_img = None
         self.start_img = None
 
         self.rock_img = None
         self.presente_img = None
 
-    def to_s(self, row, col):
+    def convert_to_state(self, row, col):
         return row * self.ncol + col
 
-    def verifyOut(self, row, col ,a):
+    def boundaryCheck(self, row, col ,a):
         if a == LEFT:
             col = col - 1
         elif a == DOWN:
@@ -147,7 +148,7 @@ class TheLastOfUsEnv(Env):
         return row<0 or row> self.nrow - 1 or col<0 or col> self.ncol - 1
 
     
-    def inc(self,row, col, a):
+    def increment_indices(self,row, col, a):
         if a == LEFT:
             col = max(col - 1, 0)
         elif a == DOWN:
@@ -160,9 +161,9 @@ class TheLastOfUsEnv(Env):
 
 
     def update_probability_matrix(self,row, col, action):
-        newrow, newcol = self.inc(row, col, action)
+        newrow, newcol = self.increment_indices(row, col, action)
 
-        out = self.verifyOut(row, col, action)
+        out = self.boundaryCheck(row, col, action)
 
         newletter = self.desc[newrow, newcol]
 
@@ -178,7 +179,7 @@ class TheLastOfUsEnv(Env):
             reward=-0.1
         terminated = bytes(newletter) in b"GZ"
 
-        newstate = self.to_s(row, col) if (out or bytes(newletter)== b"R") else self.to_s(newrow, newcol)
+        newstate = self.convert_to_state(row, col) if (out or bytes(newletter)== b"R") else self.convert_to_state(newrow, newcol)
         
         return newstate, reward, terminated
 
@@ -193,12 +194,12 @@ class TheLastOfUsEnv(Env):
         row, col = divmod(s, self.ncol)
         
         if bytes(self.desc[row, col]) == b"S":
-            pos = self.to_s(row,col)
+            pos = self.convert_to_state(row,col)
             self.desc[row, col] = b"-"
             
             for a in range(4):
-                pos_row, pos_col = self.inc(row, col,a)
-                pos = self.to_s(pos_row, pos_col)
+                pos_row, pos_col = self.increment_indices(row, col,a)
+                pos = self.convert_to_state(pos_row, pos_col)
                 invers = [2, 3, 0, 1]
                 pos_inverse = invers[a]
                 
@@ -237,7 +238,7 @@ class TheLastOfUsEnv(Env):
         self.is_slippery = self.is_slippery
         for row in range(nrow):
             for col in range(ncol):
-                s = self.to_s(row, col)
+                s = self.convert_to_state(row, col)
                 for a in range(4):
                     li = self.P[s][a]
                     letter = self.desc[row, col]
@@ -302,7 +303,7 @@ class TheLastOfUsEnv(Env):
         if self.clock is None:
             self.clock = pygame.time.Clock()
         if self.hole_img is None:
-            file_name = path.join(path.dirname(__file__), "img/zombie.png")
+            file_name = path.join(path.dirname(__file__), "img/nitro.png")
             self.hole_img = pygame.transform.scale(
                 pygame.image.load(file_name), self.cell_size
             )
@@ -337,16 +338,16 @@ class TheLastOfUsEnv(Env):
                 pygame.image.load(file_name), self.cell_size
             )
 
-        if self.elf_images is None:
-            elfs = [
-                path.join(path.dirname(__file__), "img/elf_left.png"),
-                path.join(path.dirname(__file__), "img/elf_down.png"),
-                path.join(path.dirname(__file__), "img/elf_right.png"),
-                path.join(path.dirname(__file__), "img/elf_up.png"),
+        if self.crash_images is None:
+            crash = [
+                path.join(path.dirname(__file__), "img/crash_left.png"),
+                path.join(path.dirname(__file__), "img/crash_down.png"),
+                path.join(path.dirname(__file__), "img/crash_right.png"),
+                path.join(path.dirname(__file__), "img/crash_up.png"),
             ]
-            self.elf_images = [
+            self.crash_images = [
                 pygame.transform.scale(pygame.image.load(f_name), self.cell_size)
-                for f_name in elfs
+                for f_name in crash
             ]
 
         desc = self.desc.tolist()
@@ -373,12 +374,12 @@ class TheLastOfUsEnv(Env):
         bot_row, bot_col = self.s // self.ncol, self.s % self.ncol
         cell_rect = (bot_col * self.cell_size[0], bot_row * self.cell_size[1])
         last_action = self.lastaction if self.lastaction is not None else 1
-        elf_img = self.elf_images[last_action]
+        crash_img = self.crash_images[last_action]
 
         if desc[bot_row][bot_col] == b"Z":
             self.window_surface.blit(self.death_img, cell_rect)
         else:
-            self.window_surface.blit(elf_img, cell_rect)
+            self.window_surface.blit(crash_img, cell_rect)
 
         if mode == "human":
             pygame.event.pump()

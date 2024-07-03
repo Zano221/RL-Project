@@ -6,8 +6,5 @@ Pipfile.lock
 
 .python-version
 
-# Ignore Custons Maps
-custonsmap.py
-
 # Ignore vscode Config
 .vscode
